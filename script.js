@@ -1,4 +1,4 @@
-// External JS: gallery interactions, uploads, menu, fullview, and letter compose (localStorage)
+// External JS: gallery interactions, uploads, menu, fullview, and letter compose
 
 // DOM helpers
 const $ = sel => document.querySelector(sel);
@@ -41,51 +41,61 @@ function toggleTheme() {
     applyTheme(next);
 }
 
-// candles storage key
-const CANDLES_KEY = 'eternal_candles';
+// candles storage and sorting
 let candlesSort = 'recent';
 
-// load and render candles
-function loadCandles() {
-    const raw = localStorage.getItem(CANDLES_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    renderCandles(arr);
-}
-
-function saveCandles(arr) {
-    localStorage.setItem(CANDLES_KEY, JSON.stringify(arr));
-}
-
-function addOrIncrementCandle(name) {
-    const raw = localStorage.getItem(CANDLES_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    const now = Date.now();
-    const idx = arr.findIndex(c => c.name === name);
-    if (idx !== -1) {
-        arr[idx].count = (arr[idx].count || 0) + 1;
-        arr[idx].ts = now; // update timestamp so it moves to top
-    } else {
-        arr.push({ name, ts: now, count: 1 });
+// load and render candles from remembered person
+async function loadCandles() {
+    try {
+        const remembered = currentRemembered;
+        if (!remembered) return;
+        const response = await fetch(`${API_BASE_URL}/remembered/${remembered.id}`);
+        if (!response.ok) throw new Error('Failed to fetch remembered person');
+        const profile = await response.json();
+        const candles = profile.candles || [];
+        renderCandles(candles);
+    } catch (error) {
+        console.error('Error loading candles:', error);
+        alert('Failed to load candles');
     }
-    // sort by timestamp desc
-    arr.sort((a,b) => b.ts - a.ts);
-    saveCandles(arr);
-    renderCandles(arr);
 }
 
-function renderCandles(arr) {
+async function addOrIncrementCandle(visitorName) {
+    try {
+        const remembered = currentRemembered;
+        if (!remembered) throw new Error('No profile selected');
+        const response = await fetch(`${API_BASE_URL}/remembered/${remembered.id}/candles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visitorName })
+        });
+        
+        if (!response.ok) throw new Error('Failed to light candle');
+        await loadCandles(); // Reload candles after adding
+    } catch (error) {
+        console.error('Error lighting candle:', error);
+        alert('Failed to light candle');
+    }
+}
+
+function renderCandles(candles) {
     if (!candlesGrid) return;
     candlesGrid.innerHTML = '';
-    if (!arr || !arr.length) {
+    if (!candles || !candles.length) {
         candlesGrid.innerHTML = '<div class="no-candles">No candles lit yet. Use the + button to light one.</div>';
         return;
     }
     // apply sort
-    const items = arr.slice();
+    const items = candles.slice();
     if (candlesSort === 'highest') {
         items.sort((a,b) => (b.count||0) - (a.count||0));
     } else {
-        items.sort((a,b) => b.ts - a.ts);
+        // Sort by most recent timestamp in the timeStamps array
+        items.sort((a,b) => {
+            const aTime = a.timeStamps ? a.timeStamps[a.timeStamps.length - 1] : '';
+            const bTime = b.timeStamps ? b.timeStamps[b.timeStamps.length - 1] : '';
+            return new Date(bTime) - new Date(aTime);
+        });
     }
     // totals
     const totalParticipants = items.length;
@@ -97,7 +107,8 @@ function renderCandles(arr) {
     items.forEach(c => {
         const el = document.createElement('div');
         el.className = 'candle-card';
-        el.innerHTML = `<div class="candle-content"><div class="candle-name">${escapeHtml(c.name)}</div><div class="candle-ts">${new Date(c.ts).toLocaleString()}</div></div><div class="candle-count">×${c.count}</div>`;
+        const lastTimestamp = c.timeStamps ? c.timeStamps[c.timeStamps.length - 1] : '';
+        el.innerHTML = `<div class="candle-content"><div class="candle-name">${escapeHtml(c.name)}</div><div class="candle-ts">${new Date(lastTimestamp).toLocaleString()}</div></div><div class="candle-count">×${c.count || 0}</div>`;
         candlesGrid.appendChild(el);
     });
 }
@@ -114,59 +125,79 @@ const candlesSortSelect = $('#candles-sort');
 if (candlesSortSelect) {
     candlesSortSelect.addEventListener('change', (e) => {
         candlesSort = e.target.value || 'recent';
-        // re-render using new sort
-        const raw = localStorage.getItem(CANDLES_KEY);
-        const arr = raw ? JSON.parse(raw) : [];
-        renderCandles(arr);
+        // re-fetch and render with new sort
+        loadCandles();
     });
 }
 
-// --- Letter storage (support multiple letters) ---
-const LETTERS_KEY = 'eternal_letters';
-function loadLetter() {
-    const raw = localStorage.getItem(LETTERS_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    
-    // Calculate statistics
-    const totalLetters = arr.length;
-    const uniqueSenders = new Set(arr.map(l => l.signer)).size;
-    const statsHtml = totalLetters > 0 ? `
-        <div class="letters-stats">
-            <div><span>${totalLetters}</span> letters written</div>
-            <div><span>${uniqueSenders}</span> heartfelt senders</div>
-        </div>
-    ` : '';
-    
-    if (!arr.length) {
-        letterDisplay.innerHTML = '<p class="muted">No letters yet — click the + button while on "Letter to Her" to write one.</p>';
-        return;
-    }
+// --- Letter handling using remembered_persons endpoints ---
+async function loadLetter() {
+    try {
+        const remembered = currentRemembered;
+        if (!remembered) return;
+        
+        const response = await fetch(`${API_BASE_URL}/remembered/${remembered.id}`);
+        if (!response.ok) throw new Error('Failed to fetch profile');
+        const profile = await response.json();
+        const letters = profile.letters || [];
+        
+        // Calculate statistics
+        const totalLetters = letters.length;
+        const uniqueSenders = new Set(letters.map(l => l.sender)).size;
+        const statsHtml = totalLetters > 0 ? `
+            <div class="letters-stats">
+                <div><span>${totalLetters}</span> letters written</div>
+                <div><span>${uniqueSenders}</span> heartfelt senders</div>
+            </div>
+        ` : '';
+        
+        if (!letters.length) {
+            letterDisplay.innerHTML = '<p class="muted">No letters yet — click the + button while on "Letter to Her" to write one.</p>';
+            return;
+        }
 
-    // render stats and list of letters (most recent first)
-    letterDisplay.innerHTML = statsHtml;
-    arr.slice().reverse().forEach((item, idx) => {
-        const el = document.createElement('div');
-        el.className = 'letter-paper';
-        el.dataset.index = arr.length - 1 - idx; // original index
-        el.innerHTML = `
-            <button class="letter-report" title="Report letter">Report</button>
-            <div class="letter-body">${escapeHtml(item.body).replace(/\n/g, '<br>')}</div>
-            <div class="letter-signature">— ${escapeHtml(item.signer)}, ${escapeHtml(item.date)}</div>
-        `;
-        // wire report button
-        el.querySelector('.letter-report').addEventListener('click', () => {
-            if (confirm('Report this letter?')) alert('Letter reported. Thank you.');
+        // render stats and list of letters
+        letterDisplay.innerHTML = statsHtml;
+        letters.forEach(letter => {
+            const el = document.createElement('div');
+            el.className = 'letter-paper';
+            el.innerHTML = `
+                <button class="letter-report" title="Report letter">Report</button>
+                <div class="letter-body">${escapeHtml(letter.content).replace(/\n/g, '<br>')}</div>
+                <div class="letter-signature">— ${escapeHtml(letter.sender)}, ${new Date(letter.timeStamp).toLocaleDateString()}</div>
+            `;
+            // wire report button
+            el.querySelector('.letter-report').addEventListener('click', () => {
+                if (confirm('Report this letter?')) alert('Letter reported. Thank you.');
+            });
+            letterDisplay.appendChild(el);
         });
-        letterDisplay.appendChild(el);
-    });
+    } catch (error) {
+        console.error('Error loading letters:', error);
+        alert('Failed to load letters');
+    }
 }
 
-function saveLetterObj(obj) {
-    const raw = localStorage.getItem(LETTERS_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    arr.push(obj);
-    localStorage.setItem(LETTERS_KEY, JSON.stringify(arr));
-    loadLetter();
+async function saveLetterObj(obj) {
+    try {
+        const remembered = currentRemembered;
+        if (!remembered) throw new Error('No profile selected');
+        
+        const response = await fetch(`${API_BASE_URL}/remembered/${remembered.id}/letters`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: obj.body,
+                sender: currentUser.name
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to save letter');
+        await loadLetter(); // Reload letters after saving
+    } catch (error) {
+        console.error('Error saving letter:', error);
+        alert('Failed to save letter');
+    }
 }
 
 // --- FAB behavior ---
@@ -417,60 +448,80 @@ const API_CONFIG = {
  *   }
  * }
  */
-async function searchAPI(query, options = {}) {
-    // For now, search local storage
-    const results = [];
-    
-    if (!query) return { results, metadata: { total: 0, page: 1 } };
+// Remote search helper (calls backend)
+async function remoteSearch(query) {
+    if (!query) return [];
+    try {
+        const res = await fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(query)}`);
+        if (!res.ok) return [];
+        return await res.json();
+    } catch (err) {
+        console.error('remoteSearch error', err);
+        return [];
+    }
+}
 
-    // Search in memory titles and metadata
+function renderSearchOverlay(results, query) {
+    let overlay = document.getElementById('searchOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'searchOverlay';
+        overlay.className = 'search-overlay';
+        overlay.innerHTML = `<div class="search-panel"><button id="searchClose" class="btn">Close</button><div id="searchResults"></div></div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#searchClose').addEventListener('click', () => overlay.remove());
+        // basic styles to avoid stylesheet edits
+        const style = document.createElement('style');
+        style.textContent = `#searchOverlay{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:48px;z-index:1600} #searchOverlay .search-panel{background:var(--card);padding:18px;border-radius:12px;max-width:900px;width:100%;box-shadow:var(--shadow);overflow:auto;max-height:80vh} .search-item{display:flex;gap:12px;padding:8px;border-bottom:1px solid rgba(0,0,0,0.04)} .search-thumb img{width:80px;height:64px;object-fit:cover;border-radius:8px} .search-meta p{margin:6px 0;color:var(--muted)}`;
+        document.head.appendChild(style);
+    }
+
+    const container = overlay.querySelector('#searchResults');
+    container.innerHTML = '';
+    if (!results || results.length === 0) {
+        container.innerHTML = `<div class="no-results">No results for "${escapeHtml(query)}"</div>`;
+        return;
+    }
+
+    results.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'search-item';
+        if (item.type === 'memory') {
+            el.innerHTML = `<div class="search-thumb"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.title||'memory')}"/></div><div class="search-meta"><strong>${escapeHtml(item.title||'Untitled')}</strong><div class="muted">${escapeHtml(item.user_name||'')}</div></div>`;
+            el.addEventListener('click', () => openFullview(item.url, { title: item.title, meta: item.user_name }));
+        } else if (item.type === 'letter') {
+            el.innerHTML = `<div class="search-meta"><strong>Letter</strong><div class="muted">${escapeHtml(item.user_name||'')}</div><p>${escapeHtml(item.title||'').slice(0,200)}</p></div>`;
+        } else if (item.type === 'candle') {
+            el.innerHTML = `<div class="search-meta"><strong>Candle by ${escapeHtml(item.title||'')}</strong><div class="muted">Count: ${escapeHtml(item.url||'0')}</div></div>`;
+        } else {
+            el.textContent = JSON.stringify(item);
+        }
+        container.appendChild(el);
+    });
+}
+
+// Search API uses remote then local fallback
+async function searchAPI(query, options = {}) {
+    if (!query) return { results: [], metadata: { total: 0, page: 1 } };
+    const remote = await remoteSearch(query);
+    if (remote && Array.isArray(remote) && remote.length) {
+        return { results: remote, metadata: { total: remote.length, page: 1 } };
+    }
+
+    /*local fallback
+    const results = [];
     const memoryItems = Array.from(document.querySelectorAll('.gallery-item')).map(item => ({
         type: 'memory',
         title: item.dataset.title || '',
         author: item.querySelector('.by-line')?.textContent || ''
     }));
-
-    // Search in letters
     const letters = JSON.parse(localStorage.getItem(LETTERS_KEY) || '[]');
-    
-    // Search in candles
     const candles = JSON.parse(localStorage.getItem(CANDLES_KEY) || '[]');
-
     const searchTerm = query.toLowerCase();
-    
-    // Combine and filter results
-    results.push(
-        ...memoryItems.filter(item => 
-            item.title.toLowerCase().includes(searchTerm) ||
-            item.author.toLowerCase().includes(searchTerm)
-        ),
-        ...letters.filter(letter => 
-            letter.body.toLowerCase().includes(searchTerm) ||
-            letter.signer.toLowerCase().includes(searchTerm)
-        ).map(l => ({ type: 'letter', title: `Letter from ${l.signer}`, preview: l.body.slice(0, 100) })),
-        ...candles.filter(candle => 
-            candle.name.toLowerCase().includes(searchTerm)
-        ).map(c => ({ type: 'candle', title: c.name, timestamp: c.ts }))
-    );
-
-    // TODO: When implementing real API, replace with:
-    // const response = await fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.search}?q=${encodeURIComponent(query)}`);
-    // return response.json();
-
-    return {
-        results,
-        metadata: {
-            total: results.length,
-            page: 1
-        }
-    };
-}
-
-// Handle search results display
-function displaySearchResults(results) {
-    // For now, just log results - implement UI as needed
-    console.log('Search results:', results);
-    // TODO: Implement results UI overlay or integration
+    results.push(...memoryItems.filter(item => item.title.toLowerCase().includes(searchTerm) || item.author.toLowerCase().includes(searchTerm)));
+    results.push(...letters.filter(letter => letter.body.toLowerCase().includes(searchTerm) || letter.signer.toLowerCase().includes(searchTerm)).map(l => ({ type: 'letter', title: `Letter from ${l.signer}`, preview: l.body.slice(0, 100) })));
+    results.push(...candles.filter(candle => candle.name.toLowerCase().includes(searchTerm)).map(c => ({ type: 'candle', title: c.name, timestamp: c.ts })));
+    return { results, metadata: { total: results.length, page: 1 } };*/
 }
 
 // Search input handler with debounce
@@ -480,10 +531,11 @@ const handleSearch = debounce(async (query) => {
         return;
     }
     searchClear.hidden = false;
-    
     try {
         const response = await searchAPI(query);
-        displaySearchResults(response.results);
+        const results = response.results || response;
+        console.log(results)
+        renderSearchOverlay(results, query);
     } catch (error) {
         console.error('Search failed:', error);
     }
@@ -529,44 +581,35 @@ if (searchToggle && searchContainer && searchInput) {
 // API configuration
 const API_BASE_URL = 'http://localhost:3000/api';
 
-// User management
+// User and profile management
 let currentUser = null;
+let currentRemembered = null;
+
+// Remembered person's name (would typically come from server configuration)
+const REMEMBERED_NAME = 'Loved One';
+const REMEMBERED_DATES = 'January 1, 1950 — December 31, 2020';
+const REMEMBERED_REMARK = 'A short loving remark or memory goes here — replace with text you prefer.';
 
 async function getCurrentUser() {
-    const userId = localStorage.getItem('userId');
-    if (!userId) return null;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-        if (!response.ok) throw new Error('Failed to fetch user');
-        return response.json();
-    } catch (error) {
-        console.error('Error fetching user:', error);
-        localStorage.removeItem('userId');
-        return null;
-    }
+    const visitorName = localStorage.getItem('visitorName');
+    if (!visitorName) return null;
+    return { name: visitorName };
 }
 
 async function promptForName() {
-    const name = prompt('Please enter your name to continue:');
-    if (!name) return null;
+    // First check localStorage
+    let name = localStorage.getItem('visitorName');
     
-    try {
-        const response = await fetch(`${API_BASE_URL}/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
-        });
+    // If no name in localStorage, prompt user
+    if (!name) {
+        name = prompt('Please enter your name to continue:');
+        if (!name) return null;
         
-        if (!response.ok) throw new Error('Failed to create user');
-        
-        const user = await response.json();
-        localStorage.setItem('userId', user.id);
-        return user;
-    } catch (error) {
-        console.error('Error creating user:', error);
-        return null;
+        // Save to localStorage (only store we keep)
+        localStorage.setItem('visitorName', name);
     }
+    
+    return { name };
 }
 
 // Modified gallery upload to use Imgur via backend
@@ -578,6 +621,10 @@ async function uploadMemory(file) {
             reader.readAsDataURL(file);
         });
         
+        if (base64.length > 10000000) { // 10MB limit
+            throw new Error('Image too large. Please choose a smaller image (under 10MB).');
+        }
+
         const response = await fetch(`${API_BASE_URL}/memories`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -589,9 +636,10 @@ async function uploadMemory(file) {
         });
         
         if (!response.ok) throw new Error('Failed to upload memory');
-        return response.json();
+        return await response.json();
     } catch (error) {
         console.error('Error uploading memory:', error);
+        alert(error.message || 'Failed to upload memory');
         return null;
     }
 }
@@ -609,8 +657,10 @@ async function loadMemories() {
             const div = document.createElement('div');
             div.className = 'gallery-item';
             div.dataset.id = memory.id;
+            div.dataset.title = memory.title;
+            div.dataset.uploaded = memory.created_at;
             
-            // Create gallery item HTML similar to before but use memory.image_url
+            // Create gallery item HTML
             const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
             svg.setAttribute('viewBox','0 0 100 100');
             svg.innerHTML = `<path class="shape" d="${generateBlobPath()}" />`;
@@ -622,7 +672,7 @@ async function loadMemories() {
             
             const menu = document.createElement('div');
             menu.className = 'menu';
-            menu.innerHTML = `<button class="menu-button" aria-haspopup="true" aria-expanded="false" aria-label="More options"><svg width="16" height="16"><use href="#icon-more"/></svg></button><ul class="dropdown-menu" role="menu" hidden><li role="none"><button role="menuitem" class="dropdown-item" data-action="details">Details</button></li><li role="none"><button role="menuitem" class="dropdown-item" data-action="report">Report</button></li></ul>`;
+            menu.innerHTML = `<button class="menu-button" aria-haspopup="true" aria-expanded="false" aria-label="More options"><svg width="16" height="16"><use href="#icon-more"/></svg></button><ul class="dropdown-menu" role="menu" hidden><li role="none"><button role="menuitem" class="dropdown-item" data-action="details">Details</button></li></ul>`;
             
             const label = document.createElement('div');
             label.className = 'metadata-overlay';
@@ -638,6 +688,7 @@ async function loadMemories() {
         updateGalleryCTA();
     } catch (error) {
         console.error('Error loading memories:', error);
+        alert('Failed to load memories');
     }
 }
 
@@ -655,12 +706,39 @@ galleryUpload.addEventListener('change', async (e) => {
     await loadMemories(); // Reload gallery after uploads
 });
 
+// Load remembered person profile
+async function loadRememberedProfile() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/remembered`);
+        if (!response.ok) throw new Error('Failed to fetch profiles');
+        const profiles = await response.json();
+        if (profiles && profiles.length > 0) {
+            currentRemembered = profiles[0]; // Load first profile for now
+            
+            // Update UI with profile
+            document.querySelector('.name').textContent = currentRemembered.name;
+            document.querySelector('.remark').textContent = currentRemembered.remark || '';
+            const bday = currentRemembered.birthday ? new Date(currentRemembered.birthday).toLocaleDateString() : '';
+            const lday = currentRemembered.lastday ? new Date(currentRemembered.lastday).toLocaleDateString() : '';
+            document.querySelector('.lifedates').textContent = `${bday} — ${lday}`;
+            
+            // Load data for current profile
+            await Promise.all([
+                loadMemories(),
+                loadLetter(),
+                loadCandles()
+            ]);
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        alert('Failed to load profile');
+    }
+}
+
 // Initialize app
 async function initializeApp() {
-    // Try to get existing user
+    // Get visitor name from localStorage or prompt
     currentUser = await getCurrentUser();
-    
-    // If no user, prompt for name
     if (!currentUser) {
         currentUser = await promptForName();
         if (!currentUser) {
@@ -669,11 +747,9 @@ async function initializeApp() {
         }
     }
     
-    // Initialize app with backend data
+    // Load profile and initialize UI
     updateFabBehavior('memories');
-    await loadMemories();
-    await loadLetter();
-    await loadCandles();
+    await loadRememberedProfile();
 }
 
 // initialize theme from preference, fall back to OS preference if unset

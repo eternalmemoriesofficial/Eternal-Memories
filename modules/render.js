@@ -41,11 +41,14 @@ export function renderMemorialPage(profile) {
     picDiv.style.backgroundImage = `url("${profile.profilePic}")`;
     picDiv.style.backgroundRepeat = "no-repeat";
     picDiv.style.backgroundSize = "cover";
-    picDiv.style.objectFit = "cover"
+    picDiv.style.objectFit = "cover";
     picDiv.style.backgroundPosition = "center";
     picDiv.style.backgroundColor = "#f6f7fb";
+    picDiv.style.borderRadius = "50%"; // Ensure circular shape
+    picDiv.style.overflow = "hidden"; // Ensure image is cropped to the circle
   } else {
     picDiv.style.background = "linear-gradient(90deg,#cde7ff,#f9dff2)";
+    picDiv.style.borderRadius = "50%"; // Keep circular shape for fallback
   }
   picDiv.setAttribute("aria-label", `Profile picture of ${profile.name}`);
   document.querySelector(

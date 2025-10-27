@@ -3,9 +3,18 @@ import { renderMemorialPage } from "./modules/render.js";
 const backendOrigin = "http://localhost:3000";
 window.BACKEND_ORIGIN = backendOrigin;
 
-history.pushState({}, null, "/memorial_page/idIgnored")
+// Get the repository name for GitHub Pages
+const repoName = 'Eternal-Memories';
 
-let paths = window.location.pathname.split("/").filter(Boolean);
+// Handle path from sessionStorage if coming from 404.html
+const storedPath = sessionStorage.getItem('spa-path');
+if (storedPath) {
+    history.replaceState(null, '', `/${repoName}${storedPath}`);
+    sessionStorage.removeItem('spa-path');
+}
+
+// Strip the repository name from the path for routing
+let paths = window.location.pathname.replace(`/${repoName}`, '').split('/').filter(Boolean);
 console.log("Current View:", paths);
  
 //onload routing

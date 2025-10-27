@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <title>Redirecting...</title>
     <script>
-        // Get the current path excluding the domain
-        const path = window.location.pathname + window.location.search + window.location.hash;
-        // Redirect to index.html with the original path in the URL
-        window.location.replace('/Eternal-Memories/frontend/index.html' + path);
+        // Strip the repository name from path and get the current path
+        const repoName = 'Eternal-Memories';
+        const path = window.location.pathname.replace(`/${repoName}`, '') + window.location.search + window.location.hash;
+        // Store the URL path in sessionStorage
+        sessionStorage.setItem('spa-path', path);
+        // Redirect to index.html in the repo
+        window.location.replace(`/${repoName}/index.html`);
     </script>
 </head>
 <body>

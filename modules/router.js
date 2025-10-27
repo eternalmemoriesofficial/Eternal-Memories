@@ -2,7 +2,33 @@ import { memorialProfile, memorialProfilesList } from "./mockData.js";
 import { renderMemorialPage } from "./render.js";
 
 const backendOrigin = "http://localhost:3000";
-export let paths = window.location.pathname.split("/").filter(Boolean);
+const repoName = 'Eternal-Memories';
+
+// Helper function to create proper GitHub Pages URLs
+function createGithubPagesUrl(path) {
+    if (!path.startsWith('/')) path = '/' + path;
+    return `/${repoName}${path}`;
+}
+
+// Helper function to strip repo name from path
+function stripRepoName(path) {
+    return path.replace(`/${repoName}`, '');
+}
+
+// Get paths without repo name for routing
+export let paths = stripRepoName(window.location.pathname).split("/").filter(Boolean);
+
+// Export navigation function for use in other modules
+export function navigateTo(path) {
+    const fullPath = createGithubPagesUrl(path);
+    history.pushState(null, '', fullPath);
+    // Update paths for routing
+    paths = stripRepoName(window.location.pathname).split("/").filter(Boolean);
+    // Dispatch route change event
+    document.dispatchEvent(new CustomEvent('route:changed', { 
+        detail: { path: fullPath }
+    }));
+}
 
 function renderMemorialProfilesList(profiles) {
   const container = document.querySelector(".memorial-profiles-list");
@@ -51,13 +77,21 @@ export function startUpRouting() {
             `Error fetching recent memorial profiles: ${response.statusText}`
           );
         }
+        const profiles = await response.json();
+        renderMemorialProfilesList(profiles);
+        // Update URL preserving repo name
+        history.replaceState(null, '', createGithubPagesUrl('/memorial_profiles'));
       } catch (e) {
         console.error(e);
         //static fall back for testing
         renderMemorialProfilesList(memorialProfilesList);
+        // Update URL preserving repo name
+        history.replaceState(null, '', createGithubPagesUrl('/memorial_profiles'));
       }
     });
   } else {
     console.log("404");
+    // Redirect to memorial profiles as default
+    history.replaceState(null, '', createGithubPagesUrl('/memorial_profiles'));
   }
 }

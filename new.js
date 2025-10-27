@@ -6,10 +6,18 @@ window.BACKEND_ORIGIN = backendOrigin;
 // Get the repository name for GitHub Pages
 const repoName = 'Eternal-Memories';
 
+// Helper function to create proper GitHub Pages URLs
+function createGithubPagesUrl(path) {
+    // Ensure path starts with slash
+    if (!path.startsWith('/')) path = '/' + path;
+    // Always include repo name in the URL
+    return `/${repoName}${path}`;
+}
+
 // Handle path from sessionStorage if coming from 404.html
 const storedPath = sessionStorage.getItem('spa-path');
 if (storedPath) {
-    history.replaceState(null, '', `/${repoName}${storedPath}`);
+    history.replaceState(null, '', createGithubPagesUrl(storedPath));
     sessionStorage.removeItem('spa-path');
 }
 
@@ -62,11 +70,14 @@ if (paths[0] === "memorial_page" && paths[1]) {
                     { content: "You are missed dearly.", sender: "Bob", timeStamp: "2021-02-01" }
                 ]
             });
-
-
+            
+            // Update URL with repo name preserved
+            history.replaceState(null, '', createGithubPagesUrl(`/memorial_page/${memorialProfileId}`));
         }
     })
 }else if(paths[0] === "memorial_profiles"){
+    // Update URL with repo name preserved for memorial profiles
+    history.replaceState(null, '', createGithubPagesUrl('/memorial_profiles'));
     document.addEventListener("DOMContentLoaded", async () =>{
         try{
             const response = await fetch(`${backendOrigin}/api/memorial_profiles/recent`);

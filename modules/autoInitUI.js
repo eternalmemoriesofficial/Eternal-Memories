@@ -1,4 +1,6 @@
 import { initMemorialUI } from './uiControls.js';
+import './birthday.js';
+import './profileSearch.js';
 
 // Listen for render event and initialize UI controls
 (function registerAutoInit(){

@@ -23,17 +23,29 @@ const THEME_PREF_KEY = "eternal_theme";
 
 export function renderMemorialPage(profile) {
   document.querySelector("main.memorialPage").classList.remove("hidden")
-  document.querySelector(
-    "main.memorialPage .rememberedOneProfile .banner"
-  ).style.background= profile.coverPhoto ? `url(${
-    profile.coverPhoto 
-  })` : "linear-gradient(90deg,#cde7ff,#f9dff2)";
+  const bannerEl = document.querySelector("main.memorialPage .rememberedOneProfile .banner");
+  if (profile.coverPhoto) {
+    bannerEl.style.backgroundImage = `url("${profile.coverPhoto}")`;
+    bannerEl.style.backgroundRepeat = "no-repeat";
+    bannerEl.style.backgroundSize = "cover";
+    bannerEl.style.backgroundPosition = "center";
+    bannerEl.style.backgroundColor = "#f6f7fb";
+  } else {
+    bannerEl.style.background = "linear-gradient(90deg,#cde7ff,#f9dff2)";
+  }
   const picDiv = document.querySelector(
     "main.memorialPage .rememberedOneProfile .pic"
   );
-  picDiv.style.backgroundImage = `url(${
-    profile.profilePic || "https://via.placeholder.com/150"
-  })`;
+ 
+  if (profile.profilePic) {
+    picDiv.style.backgroundImage = `url("${profile.profilePic}")`;
+    picDiv.style.backgroundRepeat = "no-repeat";
+    picDiv.style.backgroundSize = "cover";
+    picDiv.style.backgroundPosition = "center";
+    picDiv.style.backgroundColor = "#f6f7fb";
+  } else {
+    picDiv.style.background = "linear-gradient(90deg,#cde7ff,#f9dff2)";
+  }
   picDiv.setAttribute("aria-label", `Profile picture of ${profile.name}`);
   document.querySelector(
     "main.memorialPage .rememberedOneProfile .name"

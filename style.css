@@ -28,6 +28,61 @@ html[data-theme="dark"] {
     --shadow: 0 8px 24px rgba(0,0,0,0.6);
 }
 
+/* Birthday decorations and effects */
+.confetti-container .confetti-piece { box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+main.memorialPage.birthday .pic { box-shadow: 0 0 0 6px rgba(255,215,0,0.12), 0 8px 24px rgba(0,0,0,0.16); border-radius: 12px; }
+.birthday-badge { transform: scale(1); transition: transform .3s ease; }
+.birthday-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    border-radius: 12px;
+    overflow: visible;
+}
+
+.birthday-overlay .birthday-frame {
+    position: absolute;
+    inset: -15%;
+    width: 130%;
+    height: 130%;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(255, 215, 0, 0.2));
+}
+
+.birthday-overlay .birthday-sparkle {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    filter: brightness(1.2) contrast(1.1);
+    animation: float-sparkle 3s ease-in-out infinite;
+    opacity: 0.85;
+}
+
+/* Position sparkles around the frame */
+.birthday-overlay .birthday-sparkle:nth-child(2) { 
+    top: -5px;
+    right: 15%;
+    animation-delay: -1s;
+}
+.birthday-overlay .birthday-sparkle:nth-child(3) { 
+    bottom: 10%;
+    right: -5px;
+    animation-delay: -1.5s;
+}
+.birthday-overlay .birthday-sparkle:nth-child(4) { 
+    bottom: -5px;
+    left: 20%;
+    animation-delay: -0.5s;
+}
+
+@keyframes float-sparkle {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    50% { transform: translate(5px, -5px) rotate(45deg); }
+}
+
 /* make color and background transitions smooth when toggling */
 body, .card, .gallery-item, .candle-card, .letter-modal .letter-modal-inner { transition: background-color 220ms ease, color 220ms ease, box-shadow 220ms ease; }
 
@@ -194,11 +249,47 @@ html[data-theme="dark"] .search-input {
     color: var(--memorial);
 }
 
-.container{max-width:1100px;margin:24px auto;padding:0 18px}
+/* Layout */
+.container {
+    max-width: 1100px;
+    margin: 24px auto;
+    padding: 0 18px;
+    width: 100%;
+}
 
-.rememberedOneProfile{position:relative;padding-top:10px}
-.rememberedOneProfile .banner{height:140px;border-radius:12px;background:linear-gradient(90deg,#cde7ff,#f9dff2);box-shadow:var(--shadow)}
-.rememberedOneProfile .pic{width:var(--remembered-one-profile-size);height:var(--remembered-one-profile-size);border-radius:50%;background:#fff;border:6px solid #fff;box-shadow:0 8px 30px rgba(16,32,58,0.08);display:flex;align-items:center;justify-content:center;font-weight:700;color:#455;position:relative;top:-48px;margin-left:18px}
+.rememberedOneProfile {
+    position: relative;
+    padding-top: 10px;
+    margin-bottom: 24px;
+}
+.rememberedOneProfile .banner {
+    height: 180px;
+    border-radius: 12px;
+    background: linear-gradient(90deg,#cde7ff,#f9dff2);
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.rememberedOneProfile .pic {
+    width: var(--remembered-one-profile-size);
+    height: var(--remembered-one-profile-size);
+    border-radius: 50%;
+    background: #fff;
+    border: 6px solid #fff;
+    box-shadow: 0 8px 30px rgba(16,32,58,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #455;
+    position: relative;
+    top: -48px;
+    margin-left: 18px;
+    z-index: 10;
+}
 .profileMeta{margin-top:-32px;padding-left:12px}
 .name{font-size:1.25rem;margin-bottom:4px}
 .lifedates{color:var(--muted);margin-bottom:8px}
@@ -605,7 +696,14 @@ html[data-theme="dark"] .search-input {
 
 .letter-modal .letter-modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px }
 
+/* Utility Classes */
 .hidden { display: none !important }
+.flex { display: flex }
+.items-center { align-items: center }
+.justify-between { justify-content: space-between }
+.gap-2 { gap: 8px }
+.gap-3 { gap: 12px }
+.gap-4 { gap: 16px }
 
 /* Letters statistics */
 .letters-stats {
@@ -781,7 +879,12 @@ html[data-theme="dark"] .search-input {
     grid-auto-rows: 1fr;
 }
 
+/* Ensure profile pic overlay is visible above the avatar */
+.rememberedOneProfile .pic { overflow: visible; }
 
+.birthday-overlay { z-index: 12; }
+.birthday-overlay .birthday-frame { z-index: 12; }
+.birthday-overlay .birthday-sparkle { z-index: 13; }
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .mainNav {

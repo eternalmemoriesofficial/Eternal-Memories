@@ -42,7 +42,7 @@ async function loadMemorialPageAndShow(id) {
     renderMemorialPage({
       id,
       name: 'John Doe',
-      birthdate: '1950-01-01',
+      birthdate: '1950-10-27',
       lastday: '2020-12-31',
       profilePic: '../PlayerFilled.png',
       coverPhoto: "../birthday-party-banner-with-pink-balloon-confetti.jpg",

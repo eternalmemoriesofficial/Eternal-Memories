@@ -175,7 +175,7 @@ document.addEventListener('memorial:rendered', (e) => {
   const parsed = parseISODate(profile.birthdate || profile.birthday || '');
   if (!parsed) return;
   const today = new Date();
-  if ((parsed.month === (today.getMonth() + 1) && parsed.day === today.getDate()) || true) {
+  if ((parsed.month === (today.getMonth() + 1) && parsed.day === today.getDate())) {
     celebrateBirthday(profile);
   } else {
     // remove birthday class if present and restore remark

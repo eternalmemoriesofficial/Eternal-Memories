@@ -202,6 +202,42 @@ export async function initMemorialUI(profile, { backendOrigin = '' } = {}) {
   // CTA wiring
   ctaUploadBtn?.addEventListener('click', (e) => { e.preventDefault(); galleryUpload?.click(); });
 
+  // Gallery upload handling (local preview) - attaches once per UI init
+  galleryUpload?.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const galleryEl = document.querySelector('.gallery');
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const div = document.createElement('div'); div.className = 'gallery-item';
+        div.dataset.filename = file.name;
+        div.dataset.size = file.size;
+        div.dataset.uploaded = new Date().toISOString();
+        div.dataset.title = file.name;
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+        svg.setAttribute('viewBox','0 0 100 100');
+        // simple decorative path
+        svg.innerHTML = `<path class="shape" d="M10,30 Q40,5 70,30 T90,30 V90 H10 Z" />`;
+        const img = document.createElement('img'); img.src = ev.target.result; img.alt = file.name; img.className = 'gallery-img';
+        const menu = document.createElement('div'); menu.className = 'menu';
+        menu.innerHTML = `<button class="menu-button" aria-haspopup="true" aria-expanded="false" aria-label="More options"><svg width="16" height="16"><use href="#icon-more"/></svg></button><ul class="dropdown-menu" role="menu" hidden><li role="none"><button role="menuitem" class="dropdown-item" data-action="details">Details</button></li></ul>`;
+        const label = document.createElement('div'); label.className = 'metadata-overlay'; label.innerHTML = `<span class="by-line">By You</span>`;
+
+        div.appendChild(svg);
+        div.appendChild(img);
+        div.appendChild(menu);
+        div.appendChild(label);
+        galleryEl && galleryEl.appendChild(div);
+        updateGalleryCTA();
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
+
   // expose a small API
   return {
     updateFabBehavior,

@@ -41,6 +41,7 @@ export function renderMemorialPage(profile) {
     picDiv.style.backgroundImage = `url("${profile.profilePic}")`;
     picDiv.style.backgroundRepeat = "no-repeat";
     picDiv.style.backgroundSize = "cover";
+    picDiv.style.objectFit = "cover"
     picDiv.style.backgroundPosition = "center";
     picDiv.style.backgroundColor = "#f6f7fb";
   } else {

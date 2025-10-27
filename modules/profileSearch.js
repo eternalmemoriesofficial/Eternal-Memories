@@ -56,15 +56,17 @@ function renderResults(results) {
     renderModule.then(mod => {
       if (!results || results.length === 0) {
         // If no results, we can optionally show no-results state
-        history.pushState({}, '', '/memorial_profiles');
-        document.dispatchEvent(new CustomEvent('route:changed', { detail: { path: window.location.pathname } }));
-        mod.renderMemorialProfilesList([]);
-        return;
       }
       // show profiles main and render
-      history.pushState({}, '', '/memorial_profiles');
-      document.dispatchEvent(new CustomEvent('route:changed', { detail: { path: window.location.pathname } }));
-      mod.renderMemorialProfilesList(results);
+        // Ensure the profiles main is visible and avoid triggering the global route loader
+        // which would fetch the default list and overwrite search results.
+        const mains = document.querySelectorAll('main.container');
+        mains.forEach(m => m.classList.add('hidden'));
+        const profilesMain = document.querySelector('main.memorialProfiles');
+        if (profilesMain) profilesMain.classList.remove('hidden');
+
+        // Render results directly. If empty, renderMemorialProfilesList will show a "no results" state.
+        mod.renderMemorialProfilesList(results || []);
     });
   } catch (e) {
     console.error('renderResults error', e);
@@ -92,6 +94,34 @@ function initProfileSearch() {
       if (inp) inp.value = '';
       history.pushState({}, '', '/memorial_profiles');
       document.dispatchEvent(new CustomEvent('route:changed', { detail: { path: window.location.pathname } }));
+    });
+  }
+
+  // Toggle button - show/hide the search input container (header)
+  const toggle = document.querySelector('.search-toggle');
+  const container = document.querySelector('.search-input-container');
+  if (toggle && container) {
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', !isExpanded);
+      container.toggleAttribute('data-active');
+      container.hidden = isExpanded;
+      if (!isExpanded) {
+        const inp = container.querySelector('.search-input');
+        inp && inp.focus();
+      }
+    });
+
+    // close when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-container') && container.hasAttribute('data-active')) {
+        toggle.setAttribute('aria-expanded', 'false');
+        container.removeAttribute('data-active');
+        container.hidden = true;
+        const inp = container.querySelector('.search-input');
+        if (inp) inp.value = '';
+      }
     });
   }
 }
